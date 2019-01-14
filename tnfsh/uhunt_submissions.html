@@ -1,0 +1,276 @@
+<html>
+<head></head>
+<body>
+<style>
+body
+{
+	background-color: #333333;
+	color: #CCCCCC;
+	font-family: Consolas, Courier, Monokai;
+}
+
+table
+{
+	border-style: solid;
+	border-spacing: 0;
+}
+</style>
+<script>
+const NAME = 0;
+const ID = 1;
+
+const SUBS_ID = 0;
+const PROB_ID = 1;
+const JUDGE_RES = 2;
+const RUNTIME = 3;
+const SUBS_DATE = 4;
+const LANG_ID = 5;
+const RUNTIME_RANK = 6;
+
+const SUB_ERR = 10;
+const UNABLE_TO_JUDGE = 15;
+const IN_QUEUE = 20;
+const CE = 30;
+const RF = 35;
+const RE = 40;
+const OLE = 45;
+const TLE = 50;
+const MLE = 60;
+const WA = 70;
+const PE = 80;
+const AC = 90;
+
+const LANG_C = 1;
+const LANG_JAVA = 2;
+const LANG_CPP = 3;
+const LANG_PASCAL = 4;
+const LANG_CPP11 = 5;
+
+const PID = 0;
+const PNUM = 1;
+const PNAME = 2;
+
+var prob_list;
+
+// copy-paste
+Number.prototype.pad = function(size) {
+  var sign = Math.sign(this) === -1 ? '-' : '';
+  return sign + new Array(size).concat([Math.abs(this)]).join('0').slice(-size);
+}
+
+function to_prob_str(pid)
+{
+	var p = prob_list[pid];
+	return p[PNUM] + " - " + p[PNAME];
+}
+
+function to_res_str(type)
+{
+	switch (type)
+	{
+	case SUB_ERR:
+		return "<span class='res_other'>Submission Error</span>";
+	case UNABLE_TO_JUDGE:
+		return "<span class='res_other'>Cannot be judged.</span>";
+	case IN_QUEUE:
+		return "<span class='res_not_yet'>In Queue</span>";
+	case CE:
+		return "<span class='res_ce'>Compile Error</span>";
+	case RF:
+		return "<span class='res_rf'>Restricted Function</span>";
+	case RE:
+		return "<span class='res_re'>Runtime Error</span>";
+	case OLE:
+		return "<span class='res_ole'>Output Limit Exceeded</span>";
+	case TLE:
+		return "<span class='res_tle'>Time Limit Exceeded</span>";
+	case MLE:
+		return "<span class='res_mle'>Memory Limit Exceeded</span>";
+	case WA:
+		return "<span class='res_wa'>Wrong Answer</span>";
+	case PE:
+		return "<span class='res_pe'>Presentation Error</span>";
+	case AC:
+		return "<span class='res_ac'>Accepted</span>";
+	default:
+		return "<span class='res_unknown'>Unknown Status</span>";
+	}
+}
+
+function to_lang_str(type)
+{
+	switch (type)
+	{
+	case LANG_C:
+		return "<span class='lang_c'>ANSI C</span>";
+	case LANG_JAVA:
+		return "<span class='lang_java'>JAVA</span>";
+	case LANG_CPP:
+		return "<span class='lang_cpp'>C++</span>";
+	case LANG_PASCAL:
+		return "<span class='lang_pascal'>PASCAL</span>";
+	case LANG_CPP11:
+		return "<span class='lang_cpp11'>C++11</span>";
+	default:
+		return "<span class='lang_unknown'>Unknown Language</span>";
+	}
+}
+
+function to_runtime_str(res, t)
+{
+	if (res < PE)
+	{
+		return "<center>--</center>";
+	}
+	return (t/1000).toFixed(3);
+}
+
+function to_runtime_rank_str(res, t)
+{
+	if (res < PE)
+	{
+		return "<center>--</center>";
+	}
+	return t;
+}
+
+function to_date_str(d)
+{
+	var date = new Date(d * 1000);
+	return date.getFullYear() + "-" + (date.getMonth()+1).pad(2) + "-" + date.getDate().pad(2) + " " + date.getHours().pad(2) + ":" + date.getMinutes().pad(2) + ":" + date.getSeconds().pad(2);
+}
+
+function to_time_diff_str(last, cur)
+{
+	if (!last)
+	{
+		return "<center>--</center>";
+	}
+	var diff = cur - last;
+	return Math.floor(diff / 86400).pad(2) + "D " + Math.floor(diff % 86400 / 3600).pad(2) + "H " + Math.floor(diff % 3600 / 60).pad(2) + "M " + Math.floor(diff % 60).pad(2) + "S";
+}
+
+function subs_comp (p, q)
+{
+	return p[SUBS_ID] - q[SUBS_ID];
+}
+
+function real_fetch(id)
+{
+	var req = new XMLHttpRequest();
+	req.onreadystatechange = function ()
+	{
+		var msg = document.getElementById("msg");
+		if (req.readyState == 4)
+		{
+			msg.textContent = "Fetching finished. HTTP Status " + req.status;
+			if (req.status == 200)
+			{
+				var time_int = [];
+				var sub_field = document.getElementById("submission_container");
+				console.log(req.responseText);
+				var res = JSON.parse(req.responseText);
+				console.log(res);
+				var header = "<p id='subs_head'>" + res.subs.length + " Submissions found for " + res.name + "(" + res.uname + ")</p>";
+				header += "<table id='subs_table' border=1><tr><th>sid</th><th>pid</th><th>res</th><th>lang</th><th>time</th><th>rank</th><th>date</th><th>time diff</th></tr>";
+				var body = "";
+				var subs = res.subs.sort(subs_comp);
+				for (var i=0; i<subs.length; i++)
+				{
+					var sub = subs[i];
+					var pid = sub[PROB_ID];
+					var last_t = time_int[pid];
+					var sub_str = "<tr>";
+					sub_str += "<tr><td>" + sub[SUBS_ID] + "</td><td>" + to_prob_str(sub[PROB_ID]) + "</td><td align='center'>" + to_res_str(sub[JUDGE_RES]) + "</td><td>" + to_lang_str(sub[LANG_ID]) + "</td>";
+					sub_str += "<td>" + to_runtime_str(sub[JUDGE_RES], sub[RUNTIME]) + "</td><td>" + to_runtime_rank_str(sub[JUDGE_RES], sub[RUNTIME_RANK]) + "</td><td>" + to_date_str(sub[SUBS_DATE]) + "</td>";
+					sub_str += "<td>" + to_time_diff_str(last_t, sub[SUBS_DATE]) + "</td>";
+					sub_str += "</tr>";
+					body += sub_str;
+					time_int[pid] = sub[SUBS_DATE];
+				}
+				var footer = "</table>";
+				sub_field.innerHTML = header + body + footer;
+			}
+		}
+		else
+		{
+			msg.textContent = "Fetching submissions.. Stage: " + req.readyState;
+		}
+	}
+	req.open('GET', 'https://uhunt.onlinejudge.org/api/subs-user/'+id);
+	req.send(null);
+}
+
+function on_fetch_click(type)
+{
+	if (type == NAME)
+	{
+		var name_field = document.getElementById("uname");
+		var name = name_field.value;
+		var req = new XMLHttpRequest();
+		req.onreadystatechange = function ()
+		{
+			var msg = document.getElementById("msg");
+			if (req.readyState == 4)
+			{
+				msg.textContent = "Translated. HTTP Status " + req.status;
+				if (req.status == 200)
+				{
+					var id_field = document.getElementById("uid");
+					var res = req.responseText;
+					uid.value = res;
+					real_fetch(res);
+				}
+			}
+			else
+			{
+				msg.textContent = "Translate uname.. Stage: " + req.readyState;
+			}
+		}
+		req.open('GET', 'https://uhunt.onlinejudge.org/api/uname2uid/'+name);
+		req.send(null);
+	}
+	else
+	{
+		var id_field = document.getElementById("uid");
+		var id = id_field.value;
+		real_fetch(id);
+	}
+}
+
+function init()
+{
+	if (!prob_list)
+	{
+		var req = new XMLHttpRequest();
+		req.onreadystatechange = function ()
+		{
+			if (req.readyState == 4)
+			{
+				if (req.status == 200)
+				{
+					var res = JSON.parse(req.responseText);
+					prob_list = [];
+					for (var i=0; i<res.length; i++)
+					{
+						var p = res[i];
+						prob_list[p[PID]] = p;
+					}
+				}
+			}
+		}
+		req.open('GET', 'https://uhunt.onlinejudge.org/api/p');
+		req.send(null);
+	}
+}
+
+init();
+</script>
+<label for="uname">uname</label><input id="uname" type="text" value="" />
+<button type="button" onclick="javascript: on_fetch_click(NAME);">Fetch</button>
+<br />
+<label for="uid">or uid</label><input id="uid" type="text" value="" />
+<button type="button" onclick="javascript: on_fetch_click(ID);">Fetch</button>
+<p id="msg">Enter uname or uid to fetch submissions.</p>
+<p id="submission_container"></p>
+</body>
